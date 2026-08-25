@@ -1,0 +1,21 @@
+# Environments
+venv/
+env/
+.env
+.env.example
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Logs and Databases
+*.log
+*.sqlite3
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp

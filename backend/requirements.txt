@@ -1,0 +1,10 @@
+fastapi 
+uvicorn 
+neo4j 
+langchain-neo4j 
+python-dotenv 
+pydantic
+langchain-groq
+langchain 
+langchain-community
+langchain-core
