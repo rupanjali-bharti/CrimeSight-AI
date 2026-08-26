@@ -1,0 +1,3 @@
+framer-motion 
+lucide-react 
+react-router-dom

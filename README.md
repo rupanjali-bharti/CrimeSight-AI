@@ -22,7 +22,9 @@ Unlike traditional vector-search RAG systems that can lose legal context, CrimeS
 - **Natural Language to Cypher Translation:** Translates unstructured situation descriptions into precise graph traversal queries.
 - **Full Relationship Traversal:** Navigates complex paths connecting offenses, sections, value limits, and legal exceptions such as the Right of Private Defence.
 - **Grounded Answers:** Restricts answer formulation to data returned from the verified BNS knowledge graph.
-- **High-Performance FastAPI Backend:** Provides an asynchronous REST API for frontend integration and client consumption.
+- **Conversational Memory:** Preserves recent user and agent turns so follow-up questions can resolve context and pronouns.
+- **Interactive React Frontend:** Provides a responsive landing page and agent workspace with animated processing states, case titles, chat history, and graph evidence.
+- **High-Performance FastAPI Backend:** Provides a REST API for frontend integration and client consumption.
 
 ## Architecture
 
@@ -63,14 +65,20 @@ User Situational Query
 
 ```text
 legal-agent/
-└── backend/
-		├── database.py             # Neo4j driver connection and query utilities
-		├── extract_schema.py       # One-time schema relationship catalog extraction
-		├── llm_pipeline.py         # Dynamic Cypher generation and GraphQA chain
-		├── main.py                 # FastAPI application and endpoint routing
-		├── schema_catalog.json      # Indexed schema relationship patterns
-		├── schema_retriever.py     # In-memory TF-IDF Schema RAG retriever
-		└── requirements.txt         # Backend dependencies
+├── backend/
+│   ├── database.py             # Neo4j driver connection and query utilities
+│   ├── extract_schema.py       # One-time schema relationship catalog extraction
+│   ├── llm_pipeline.py         # Dynamic Cypher generation and conversational GraphQA
+│   ├── main.py                 # FastAPI application and endpoint routing
+│   ├── schema_catalog.json     # Indexed schema relationship patterns
+│   ├── schema_retriever.py     # In-memory TF-IDF Schema RAG retriever
+│   └── requirements.txt        # Backend dependencies
+└── frontend/
+    ├── src/App.jsx             # Landing page, chat workspace, and application state
+    ├── src/App.css             # Responsive legal-tech visual system
+    ├── src/index.css           # Global styles and fonts
+    ├── package.json             # Frontend scripts and dependencies
+    └── vite.config.js           # Vite configuration
 ```
 
 ## Getting Started
@@ -131,13 +139,47 @@ Run this script once to index your database's relationship patterns:
 python extract_schema.py
 ```
 
-### 7. Run the Application
+### 7. Install and Run the Frontend
+
+Open a second terminal from the repository root:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite development server will print the frontend URL, usually `http://localhost:5173`.
+
+### 8. Run the Backend Application
+
+From the `backend/` directory:
 
 ```bash
 uvicorn main:app --reload
 ```
 
 The API is available at `http://127.0.0.1:8000`. Interactive documentation is available at `http://127.0.0.1:8000/docs`.
+
+## Frontend Experience
+
+The frontend is built with React, Vite, Tailwind CSS, Framer Motion, and `lucide-react`.
+
+- **Presentation view:** Explains the CrimeSight pipeline through the knowledge graph visualization, architecture flow, and capability sections.
+- **Agent workspace:** Provides a collapsible sidebar, empty initial case history, starter prompts, auto-growing incident composer, and responsive chat canvas.
+- **Dynamic case history:** The first message in each workspace session creates a short four-word case title. Titles are rendered from React state rather than hardcoded data.
+- **Agent trace:** Displays the four processing stages while a request is being analyzed.
+- **Evidence view:** Allows users to expand the generated read-only Cypher query and Neo4j execution metadata.
+- **Resilient demo flow:** Displays a representative response when the backend is unavailable, making the frontend usable during demonstrations.
+
+### Frontend Commands
+
+```bash
+cd frontend
+npm run dev       # Start the development server
+npm run build     # Create a production build
+npm run lint      # Run Oxlint
+```
 
 ## Example API Usage
 
@@ -149,7 +191,8 @@ The API is available at `http://127.0.0.1:8000`. Interactive documentation is av
 
 ```json
 {
-	"situation": "A person physically assaulted me on the street causing grievous bodily injuries. Which legal sections cover this assault?"
+	"situation": "A person physically assaulted me on the street causing grievous bodily injuries. Which legal sections cover this assault?",
+	"chat_history": []
 }
 ```
 
@@ -158,17 +201,74 @@ The API is available at `http://127.0.0.1:8000`. Interactive documentation is av
 ```json
 {
 	"status": "success",
-	"extracted_cypher": "MATCH (e:Entity)-[r]-(s:Entity)\\nWHERE ANY(k IN keys(e) WHERE toString(e[k]) =~ '(?i).*assault.*')\\n   OR ANY(k IN keys(s) WHERE toString(s[k]) =~ '(?i).*assault.*')\\nRETURN e, s",
+	"cypher_query": "MATCH (e:Entity)-[r]-(s:Entity)\\nWHERE ANY(k IN keys(e) WHERE toString(e[k]) =~ '(?i).*assault.*')\\n   OR ANY(k IN keys(s) WHERE toString(s[k]) =~ '(?i).*assault.*')\\nRETURN e, s",
 	"agent_response": "Section 133 - Assault or criminal force with intent to dishonour person, otherwise than on grave provocation.\nSection 134 - Assault or criminal force in attempt to commit theft of property carried by a person."
 }
 ```
+
+
+### Conversational Follow-up
+
+The frontend sends previous turns in the next request so the backend can resolve questions such as “What section does that come under?”:
+
+```json
+{
+  "situation": "What section does that come under?",
+  "chat_history": [
+    {
+      "role": "user",
+      "content": "A person physically assaulted me and caused grievous bodily injuries."
+    },
+    {
+      "role": "agent",
+      "content": "The graph identified provisions relating to assault causing grievous hurt."
+    }
+  ]
+}
+```
+
+The backend formats the most recent 12 turns, combines them with the current question for schema retrieval, and injects them into the Cypher-generation input. The request-based approach keeps sessions isolated and avoids shared server memory between users.
+
+## Challenges and Solutions
+
+### 1. Graph Schema Context Overload
+
+- **Challenge:** Passing the complete Neo4j schema to the LLM created a large prompt and risked Groq token-limit failures.
+- **Solution:** Disabled automatic schema refresh and added TF-IDF retrieval to select only the relevant schema patterns for each incident.
+
+### 2. Hallucinated Cypher Properties and Relationships
+
+- **Challenge:** The model could invent property names or relationship directions, producing empty graph results.
+- **Solution:** Added strict read-only Cypher instructions, required a filtered `WHERE` clause, constrained nodes to the `Entity` label, and supplied the retrieved schema as the source of truth.
+
+### 3. Stateless Follow-up Questions
+
+- **Challenge:** A new `GraphCypherQAChain` invocation had no knowledge of previous turns, so pronouns and follow-up questions lost their case context.
+- **Solution:** Added an optional `chat_history` field to the FastAPI request model. Recent turns are formatted and passed into schema retrieval and Cypher generation.
+
+### 4. Empty or Hardcoded Frontend Case History
+
+- **Challenge:** Static sidebar cases did not represent the user’s current session and made new sessions appear populated.
+- **Solution:** Replaced the static list with `sidebarChats` React state. The first submitted message generates a short title and adds it to the sidebar.
+
+### 5. Long-running Agent Feedback
+
+- **Challenge:** Graph and LLM requests can take long enough for users to wonder whether the application is responding.
+- **Solution:** Added an animated four-step agent trace covering narrative analysis, schema retrieval, graph traversal, and legal synthesis.
+
+### 6. Backend Availability During Demos
+
+- **Challenge:** The frontend should remain demonstrable when Neo4j, Groq, or FastAPI is temporarily unavailable.
+- **Solution:** Added a visible API notice and a representative grounded response fallback while preserving the live API path for connected environments.
 
 ## Roadmap
 
 - [x] Neo4j AuraDB knowledge graph connection
 - [x] Text-to-Cypher generation via Groq API
 - [x] Dynamic Schema Retrieval (Schema RAG)
-- [ ] React + Tailwind CSS interactive chat interface
+- [x] React + Tailwind CSS interactive chat interface
+- [x] Animated agent trace and expandable Cypher evidence
+- [x] Request-based conversational memory for follow-up questions
 - [ ] LangGraph multi-agent orchestration for FIR auto-drafting and bail calculation
 - [ ] User role authentication and saved case history
 

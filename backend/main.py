@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from database import db
 from llm_pipeline import analyze_legal_situation # IMPORT YOUR PIPELINE
 
@@ -16,6 +16,7 @@ app.add_middleware(
 
 class SituationRequest(BaseModel):
     situation: str
+    chat_history: list[dict[str, str]] = Field(default_factory=list)
 
 @app.get("/")
 def root():
@@ -28,7 +29,7 @@ def analyze_situation(payload: SituationRequest):
         raise HTTPException(status_code=400, detail="Situation text cannot be empty.")
     
     # Send the situation to the LLM and Graph
-    result = analyze_legal_situation(user_situation)
+    result = analyze_legal_situation(user_situation, payload.chat_history)
     
     if result["status"] == "error":
         raise HTTPException(status_code=500, detail=result["message"])
