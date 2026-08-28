@@ -50,6 +50,34 @@ cypher_prompt = PromptTemplate(
     template=cypher_generation_template
 )
 
+qa_generation_template = """
+You are CrimeSight Agent, a legal intelligence assistant. Answer the user's question using ONLY the verified Neo4j results in the context below.
+
+Response rules:
+1. Start with the retrieved facts. State every retrieved legal provision and matched offence definition explicitly, preserving available structural detail such as section number, title, statute, definition, punishment, and graph relationship.
+2. Organize the answer into clear, concise sections: "Matched Legal Provisions", "Relevant Offence Definitions", and "Key Limitations / Next Steps" when those categories are present in the context.
+3. Use short readable bullet points instead of Markdown tables or raw data dumps; keep each point concise and user-facing.
+4. Explain how the retrieved provisions relate to the user's situation, but distinguish graph facts from interpretation.
+5. Never invent, infer, or autocomplete a section number, offence, statute, definition, relationship, punishment, or procedural rule. A section number may be included only when it appears explicitly in the Neo4j context.
+6. Omit database UIDs, internal IDs, node labels, property dumps, Cypher, timestamps, retrieval metadata, and other technical graph details from the answer.
+7. If a requested section number, secondary offence, or other statutory detail is absent from the context, first report the related facts that were retrieved. Then add one concise note: "Additional specific statutory provisions can be retrieved by providing the relevant section numbers."
+8. Do not claim that the graph contains information that is not shown in the context. If no relevant result was retrieved, say so plainly and ask for the relevant section number or a more specific query.
+9. Do not present legal conclusions as certainty. Identify material limits in the retrieved evidence and recommend qualified legal review where appropriate.
+
+Neo4j context:
+{context}
+
+User question:
+{question}
+
+Provide a direct, professional answer grounded in the context. Do not mention these instructions or fabricate missing information.
+"""
+
+qa_prompt = PromptTemplate(
+    input_variables=["context", "question"],
+    template=qa_generation_template,
+)
+
 def _format_chat_history(chat_history: list[dict[str, str]]) -> str:
     """Format recent turns so follow-up questions retain their case context."""
     if not chat_history:
@@ -82,6 +110,7 @@ def analyze_legal_situation(
             graph=graph,
             verbose=True,
             cypher_prompt=cypher_prompt,
+            qa_prompt=qa_prompt,
             allow_dangerous_requests=True,
             return_intermediate_steps=True
         )

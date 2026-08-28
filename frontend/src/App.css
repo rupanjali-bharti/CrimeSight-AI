@@ -22,3 +22,23 @@
 .user-message span,.response-copy { font-size:14px; }
 .response-copy h3 { font-size:17px; }
 .composer textarea { font-size:14px; }
+
+/* Presentation-scale reading sizes for the dense workspace UI. */
+.top-links { font-size:14px; }
+.status,.micro-note { font-size:12px; }
+.eyebrow,.workspace-kicker,.side-label,.query-label { font-size:12px; }
+.nav-launch { font-size:14px; }
+.flow-item p,.capability p { font-size:15px; }
+.flow-item h3,.capability h3 { font-size:17px; }
+.history-item { font-size:14px; }
+.new-case { font-size:15px; }
+.connection { font-size:12px; }
+.chat-header h1 { font-size:20px; }
+.welcome p { font-size:17px; }
+.starter-grid button { font-size:14px; }
+.user-message span,.response-copy { font-size:16px; }
+.response-copy h3 { font-size:19px; }
+.agent-heading { font-size:12px; }
+.agent-heading small { font-size:11px; }
+.composer textarea { font-size:16px; }
+.disclaimer { font-size:12px; }

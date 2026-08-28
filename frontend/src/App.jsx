@@ -34,52 +34,52 @@ const flow = [
     number: "01",
     title: "User Situation",
     icon: FileText,
-    copy: "Narrative in, nuance intact.",
+    copy: "Turn complex incident narratives into structured legal intelligence.",
   },
   {
     number: "02",
     title: "Schema RAG",
     icon: GitBranch,
-    copy: "2,300+ patterns indexed.",
+    copy: "BNS and BNSS schemas retrieved with contextual precision.",
   },
   {
     number: "03",
     title: "Text-to-Cypher",
     icon: Terminal,
-    copy: "Groq translates intent.",
+    copy: "Generate transparent, read-only graph queries from legal intent.",
   },
   {
     number: "04",
     title: "Graph Traversal",
     icon: Network,
-    copy: "Neo4j verifies the path.",
+    copy: "Execute multi-hop Neo4j traversals across connected provisions.",
   },
   {
     number: "05",
     title: "Legal Synthesis",
     icon: ShieldCheck,
-    copy: "Grounded answer, cited.",
+    copy: "Deliver cited reasoning with auditable compliance context.",
   },
 ];
 const capabilities = [
   [
-    "Dynamic Schema Retrieval",
-    "Relevant graph context, retrieved at query time.",
+    "Contextual Schema Intelligence",
+    "Retrieve the precise BNS and BNSS graph context for every matter.",
     GitBranch,
   ],
   [
-    "Deterministic Graph Traversal",
-    "Trace every answer back to a known relationship.",
+    "Deterministic Legal Mapping",
+    "Trace every conclusion through verified relationships and provisions.",
     Network,
   ],
   [
-    "Real-time Section Lookup",
-    "Find the right BNS provision without guesswork.",
+    "Zero-Hallucination Guardrails",
+    "Keep legal synthesis anchored to source-backed graph evidence.",
     BookOpen,
   ],
   [
-    "Exception & Defence Mapping",
-    "Surface nuance around remedies and exceptions.",
+    "Persistent Case Intelligence",
+    "Maintain conversational session context across complex investigations.",
     ShieldCheck,
   ],
 ];
@@ -89,15 +89,13 @@ const thinkingSteps = [
   ["Traversing Neo4j legal knowledge graph...", Network],
   ["Synthesizing grounded legal response...", ShieldCheck],
 ];
-const demoResponse = `### Preliminary legal mapping
-
-Based on the incident narrative, the graph identifies provisions relating to **assault causing grievous hurt** under the Bharatiya Nyaya Sanhita, 2023.
-
-- **Section 115**: Voluntarily causing hurt or grievous hurt.
-- **Section 117**: Voluntarily causing grievous hurt by dangerous weapons or means.
-- The final classification depends on medical evidence, intent, and the circumstances of the incident.
-
-This is an automated research aid, not a substitute for advice from a qualified legal professional.`;
+const demoResponse = `### Matched Legal Provisions
+- The representative result identifies provisions relating to assault causing grievous hurt under the Bharatiya Nyaya Sanhita, 2023.
+### Relevant Offence Definitions
+- No offence definition was explicitly retrieved from the graph.
+### Key Limitations / Next Steps
+- The classification depends on medical evidence, intent, and the circumstances of the incident.
+- Additional specific statutory provisions can be retrieved by providing the relevant section numbers.`;
 
 function Logo({ compact = false }) {
   return (
@@ -135,23 +133,24 @@ function Landing({ onLaunch }) {
       <section className="hero page-width">
         <div className="hero-copy">
           <div className="eyebrow">
-            <span className="eyebrow-line" /> BNS 2023 KNOWLEDGE GRAPH
+            <span className="eyebrow-line" /> AI LEGAL INTELLIGENCE / BNS + BNSS
           </div>
           <h1>
             Legal intelligence
             <br />
-            <em>with a memory.</em>
+            <em>with evidence.</em>
           </h1>
           <p className="hero-subtitle">
-            CrimeSight turns complex incident narratives into deterministic
-            legal provisions, offenses, and procedural remedies.
+            CrimeSight Agent transforms complex incident narratives into
+            transparent, source-grounded legal intelligence across the BNS and
+            BNSS knowledge graph.
           </p>
           <div className="hero-actions">
             <button className="primary-button" onClick={onLaunch}>
               Launch CrimeSight Agent <ArrowRight size={18} />
             </button>
             <span className="micro-note">
-              <ShieldCheck size={15} /> Grounded in verified graph data
+              <ShieldCheck size={15} /> Auditable reasoning. Verified graph evidence.
             </span>
           </div>
         </div>
@@ -183,16 +182,16 @@ function Landing({ onLaunch }) {
             <span>defence</span>
           </div>
           <div className="graph-caption">
-            <span>LIVE GRAPH</span>
-            <b>12,847</b>
-            <small>indexed legal entities</small>
+            <span>PRODUCTION GRAPH</span>
+            <b>12,847+</b>
+            <small>connected legal entities</small>
           </div>
         </div>
       </section>
       <section className="architecture page-width" id="architecture">
         <div className="section-heading">
           <span>01 / HOW IT THINKS</span>
-          <h2>From story to statute.</h2>
+          <h2>From narrative to defensible legal intelligence.</h2>
         </div>
         <div className="flow-grid">
           {flow.map(({ number, title, icon: Icon, copy }, index) => (
@@ -218,7 +217,7 @@ function Landing({ onLaunch }) {
       <section className="capabilities page-width" id="capabilities">
         <div className="section-heading">
           <span>02 / BUILT FOR THE DETAILS</span>
-          <h2>Less guessing. More grounding.</h2>
+          <h2>Reasoning built for scrutiny.</h2>
         </div>
         <div className="capability-grid">
           {capabilities.map(([title, copy, Icon]) => (
@@ -234,7 +233,7 @@ function Landing({ onLaunch }) {
         <span>
           <Logo compact /> CrimeSight-AI
         </span>
-        <span>Indian Criminal Law · BNS 2023</span>
+        <span>Indian Criminal Law · BNS + BNSS</span>
         <span>© 2026</span>
       </footer>
     </main>
@@ -264,18 +263,35 @@ function Thinking({ active }) {
 }
 
 function MarkdownResponse({ text }) {
+  const technicalMarkers = [
+    "uid",
+    "internal id",
+    "node label",
+    "retrieval metadata",
+    "property dump",
+    "cypher",
+    "timestamp",
+  ];
+  const lines = text.split("\n").filter((line) => {
+    const trimmed = line.trim();
+    return (
+      trimmed &&
+      !trimmed.startsWith("|") &&
+      !/^[-| :]+$/.test(trimmed) &&
+      !technicalMarkers.some((marker) => trimmed.toLowerCase().includes(marker))
+    );
+  });
   return (
     <div className="response-copy">
-      {text.split("\n").map((line, index) => {
-        if (!line) return <br key={index} />;
+      {lines.map((line, index) => {
         if (line.startsWith("### "))
           return <h3 key={index}>{line.slice(4)}</h3>;
-        if (line.startsWith("- "))
+        if (/^(?:[-*+]\s+|\d+[.)]\s+|•\s+)/.test(line))
           return (
             <div className="response-bullet" key={index}>
               <span />
               {line
-                .slice(2)
+                .replace(/^(?:[-*+]\s+|\d+[.)]\s+|•\s+)/, "")
                 .split(/(\*\*.*?\*\*)/)
                 .map((part, i) =>
                   part.startsWith("**") ? (
