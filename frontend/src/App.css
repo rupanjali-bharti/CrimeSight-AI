@@ -9,3 +9,16 @@
 @keyframes blink { 50% { opacity:.25; transform:scale(.7); } }
 @media (max-width:800px) { .page-width { padding-left:22px; padding-right:22px; }.top-links { display:none; }.nav-launch { padding:9px; font-size:0; }.hero { grid-template-columns:1fr; padding-top:65px; padding-bottom:55px; }.hero h1 { letter-spacing:-2.5px; }.hero-visual { height:330px; }.architecture,.capabilities { padding-top:55px; padding-bottom:55px; }.flow-grid { grid-template-columns:1fr; }.flow-item { min-height:0; padding:19px 0; margin:0; border-right:0; border-bottom:1px solid var(--line); }.flow-number { display:inline; margin-right:15px; }.flow-arrow { display:none; }.capability-grid { grid-template-columns:1fr 1fr; }.footer { gap:12px; flex-wrap:wrap; }.sidebar { position:absolute; z-index:5; height:100%; box-shadow:10px 0 30px rgba(0,0,0,.35); }.sidebar.collapsed { width:0; padding:25px 0; overflow:hidden; border:0; }.chat-header { padding:0 20px; }.mobile-menu { display:grid; margin-right:12px; }.chat-header>div { margin-right:auto; }.chat-scroll { padding:35px 20px 20px; }.composer-wrap { padding:0 20px 18px; }.welcome { margin-top:5vh; }.welcome h2 { font-size:38px; }.starter-grid { flex-direction:column; align-items:stretch; }.starter-grid button { justify-content:space-between; }.agent-card { padding:18px; }.hero-actions { align-items:flex-start; flex-direction:column; gap:14px; } }
 @media (max-width:450px) { .capability-grid { grid-template-columns:1fr; }.topbar { height:70px; }.footer span:nth-child(2) { width:100%; order:3; }.hero-visual { height:290px; }.node-a { left:3%; }.node-b { right:3%; }.graph-node { padding:7px 8px; font-size:9px; } }
+
+/* Slightly larger reading sizes for the landing page and workspace. */
+.hero-subtitle { font-size:17px; }
+.flow-item h3,.capability h3 { font-size:15px; }
+.flow-item p,.capability p { font-size:13px; }
+.history-item { font-size:12px; }
+.new-case { font-size:13px; }
+.chat-header h1 { font-size:18px; }
+.welcome p { font-size:15px; }
+.starter-grid button { font-size:12px; }
+.user-message span,.response-copy { font-size:14px; }
+.response-copy h3 { font-size:17px; }
+.composer textarea { font-size:14px; }
