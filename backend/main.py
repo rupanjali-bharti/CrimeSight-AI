@@ -24,12 +24,13 @@ def root():
 
 @app.post("/api/analyze-situation")
 def analyze_situation(payload: SituationRequest):
+    """Analyze a turn using the frontend-provided conversation history."""
     user_situation = payload.situation.strip()
     if not user_situation:
         raise HTTPException(status_code=400, detail="Situation text cannot be empty.")
     
     # Send the situation to the LLM and Graph
-    result = analyze_legal_situation(user_situation, payload.chat_history)
+    result = analyze_legal_situation(user_situation, payload.chat_history[-12:])
     
     if result["status"] == "error":
         raise HTTPException(status_code=500, detail=result["message"])

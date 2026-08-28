@@ -36,13 +36,14 @@ User Situation/Question:
 
 Instructions:
 1. Generate a read-only Cypher query (MATCH, WHERE, RETURN).
-2. All nodes have the label `:Entity`.
-3. If the user asks for a legal section, traverse the graph using the provided relationship types (e.g., MATCH (e:Entity)-[r]-(s:Entity)).
-4. CRITICAL FILTERING: You MUST include a WHERE clause to filter nodes based on specific keywords from the user's situation. NEVER return an unfiltered query.
-5. CRITICAL TYPE SAFETY: When filtering dynamically across keys, you MUST cast the value to a string first to prevent Neo4j type errors. Use this exact syntax pattern: 
+2. The question may contain a previous conversation followed by a current question. Treat the current question as a follow-up when it uses references such as "these sections", "that offence", or "what procedures". Carry forward explicit section numbers, offence names, and statutory terms from the previous conversation into the query.
+3. All nodes have the label `:Entity`.
+4. If the user asks for a legal section, traverse the graph using the provided relationship types (e.g., MATCH (e:Entity)-[r]-(s:Entity)).
+5. CRITICAL FILTERING: You MUST include a WHERE clause to filter nodes based on specific keywords from the current question and relevant prior turns. NEVER return an unfiltered query.
+6. CRITICAL TYPE SAFETY: When filtering dynamically across keys, you MUST cast the value to a string first to prevent Neo4j type errors. Use this exact syntax pattern: 
    `WHERE ANY(k IN keys(e) WHERE toLower(toString(e[k])) CONTAINS 'keyword') OR ANY(k IN keys(s) WHERE toLower(toString(s[k])) CONTAINS 'keyword')`
-6. CRITICAL RETURN: Ensure your RETURN statement includes the properties of BOTH nodes in the traversal (e.g., RETURN e, s). Do not just return one node.
-7. Return ONLY the raw Cypher query without markdown backticks or explanations.
+7. CRITICAL RETURN: Ensure your RETURN statement includes the properties of BOTH nodes in the traversal (e.g., RETURN e, s). Do not just return one node.
+8. Return ONLY the raw Cypher query without markdown backticks or explanations.
 """
 
 cypher_prompt = PromptTemplate(
@@ -51,18 +52,19 @@ cypher_prompt = PromptTemplate(
 )
 
 qa_generation_template = """
-You are CrimeSight Agent, a legal intelligence assistant. Answer the user's question using ONLY the verified Neo4j results in the context below.
+You are CrimeSight Agent, a legal intelligence assistant. Answer the current user question using ONLY the verified Neo4j results in the context below.
 
 Response rules:
 1. Start with the retrieved facts. State every retrieved legal provision and matched offence definition explicitly, preserving available structural detail such as section number, title, statute, definition, punishment, and graph relationship.
 2. Organize the answer into clear, concise sections: "Matched Legal Provisions", "Relevant Offence Definitions", and "Key Limitations / Next Steps" when those categories are present in the context.
 3. Use short readable bullet points instead of Markdown tables or raw data dumps; keep each point concise and user-facing.
-4. Explain how the retrieved provisions relate to the user's situation, but distinguish graph facts from interpretation.
-5. Never invent, infer, or autocomplete a section number, offence, statute, definition, relationship, punishment, or procedural rule. A section number may be included only when it appears explicitly in the Neo4j context.
-6. Omit database UIDs, internal IDs, node labels, property dumps, Cypher, timestamps, retrieval metadata, and other technical graph details from the answer.
-7. If a requested section number, secondary offence, or other statutory detail is absent from the context, first report the related facts that were retrieved. Then add one concise note: "Additional specific statutory provisions can be retrieved by providing the relevant section numbers."
-8. Do not claim that the graph contains information that is not shown in the context. If no relevant result was retrieved, say so plainly and ask for the relevant section number or a more specific query.
-9. Do not present legal conclusions as certainty. Identify material limits in the retrieved evidence and recommend qualified legal review where appropriate.
+4. The question may include conversation history for resolving references such as "these sections" or "that offence"; use it for context, but base the answer only on the current turn's verified Neo4j results.
+5. Explain how the retrieved provisions relate to the user's situation, but distinguish graph facts from interpretation.
+6. Never invent, infer, or autocomplete a section number, offence, statute, definition, relationship, punishment, or procedural rule. A section number may be included only when it appears explicitly in the Neo4j context.
+7. Omit database UIDs, internal IDs, node labels, property dumps, Cypher, timestamps, retrieval metadata, and other technical graph details from the answer.
+8. If a requested section number, secondary offence, or other statutory detail is absent from the context, first report the related facts that were retrieved. Then add one concise note: "Additional specific statutory provisions can be retrieved by providing the relevant section numbers."
+9. Do not claim that the graph contains information that is not shown in the context. If no relevant result was retrieved, say so plainly and ask for the relevant section number or a more specific query.
+10. Do not present legal conclusions as certainty. Identify material limits in the retrieved evidence and recommend qualified legal review where appropriate.
 
 Neo4j context:
 {context}
@@ -116,9 +118,10 @@ def analyze_legal_situation(
         )
 
         question_with_history = (
-            "Previous conversation (use this to resolve pronouns and follow-ups):\n"
+            "Conversation history (use this to resolve pronouns, section references, and follow-ups):\n"
             f"{history_context}\n\n"
-            f"Current user situation/question:\n{situation}"
+            "Current user situation/question (answer this turn):\n"
+            f"{situation}"
         )
         response = qa_chain.invoke({"query": question_with_history})
         intermediate_steps = response.get("intermediate_steps", [])
