@@ -30,36 +30,51 @@ Unlike traditional vector-search RAG systems that can lose legal context, CrimeS
 
 ```text
 User Situational Query
-					|
-					v
+	|
+	v
 +----------------------------------+
-|     Schema Semantic Retriever    |
-|   TF-IDF over 2,300+ Patterns    |
+| FastAPI API and Agent Interface  |
 +----------------+-----------------+
-								 |
-								 v
-		Top Relevant Schema Subset
-								 |
-								 v
+		 |
+		 v
 +----------------------------------+
-|      Groq LLM (Text-to-Cypher)   |
+| Current GraphRAG Pipeline        |
+|                                  |
+|  1. Schema Semantic Retriever    |
+|     TF-IDF over 2,300+ patterns  |
+|  2. Groq LLM Text-to-Cypher      |
+|  3. Neo4j BNS Knowledge Graph    |
+|  4. Grounded Legal Synthesis     |
 +----------------+-----------------+
-								 |
-								 v
-			 Generated Cypher Query
-								 |
-								 v
-+----------------------------------+
-|       Neo4j Knowledge Graph      |
-|          BNS 2023 Nodes          |
-+----------------+-----------------+
-								 |
-								 v
-			 Extracted Legal Context
-								 |
-								 v
-		Grounded Legal Answer Synthesis
+		 |
+		 v
+	Verified Legal Answer
+		 |
+		 v
+	React Agent Workspace
+
+Planned Agent Orchestration Layer
+	|
+	+--> Automated FIR and Legal Petition Draft Generator
+	|       Extract incident details such as dates, amounts, scammer
+	|       handles, and locations; structure FIR or bank-freezing
+	|       complaints; cite relevant BNS and BNSS provisions.
+	|
+	+--> Cross-Jurisdiction and Procedural Guidance Agent
+	|       Analyze geographic constraints and explain procedural rules,
+	|       service mechanisms, warrants, and compulsory attendance steps.
+	|
+	+--> Evidence-to-Statute Compliance Matcher
+		Compare uploaded evidence or text logs with the Neo4j graph,
+		identify matched provisions and statutory gaps, and produce
+		an admissible-evidence checklist for filing or hearings.
 ```
+
+The current GraphRAG pipeline is implemented today. The agent orchestration
+layer is planned for a future phase and will reuse the existing schema
+retrieval, Groq, and Neo4j components. Each future agent will return grounded
+legal evidence, cite the applicable BNS or BNSS provisions, and clearly
+separate retrieved facts from procedural guidance or generated drafts.
 
 ## Project Structure
 
