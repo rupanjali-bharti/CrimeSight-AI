@@ -1,152 +1,124 @@
-"""Flexible retrieval of BNS sections from the Neo4j legal graph."""
 
-from __future__ import annotations
-
-import re
-from collections.abc import Mapping
-from typing import Protocol
-
-
-class GraphQuery(Protocol):
-    def query(
-        self, query: str, params: Mapping[str, object] | None = None
-    ) -> list[Mapping[str, object]]: ...
-
-
-BNS_STATUTE_QUERY = """
-MATCH (section:Entity)-[relationship]->(statute:Entity)
-WHERE type(relationship) IN $statute_relationships
-  AND toLower(coalesce(toString(section.type), '')) CONTAINS 'section'
-  AND ANY(key IN keys(statute)
-          WHERE toLower(toString(statute[key])) CONTAINS 'bharatiya nyaya sanhita'
-             OR toLower(toString(statute[key])) = 'bns')
-WITH section, statute,
-     [keyword IN $keywords
-      WHERE ANY(key IN keys(section)
-                WHERE toLower(toString(section[key])) CONTAINS keyword)] AS matched_keywords
-WHERE size(matched_keywords) > 0
-RETURN properties(section) AS section_properties,
-       properties(statute) AS statute_properties,
-       matched_keywords
-ORDER BY size(matched_keywords) DESC
-LIMIT 12
-"""
-
-
-STATUTE_SEARCH_TERMS = {
+STATUTE_DATA = {
     "commercial_contract_fraud": [
-        "cheating",
-        "fraud",
-        "dishonestly",
-        "contract",
-        "agreement",
-        "property",
-        "breach of trust",
-        "inducement",
+        {
+            "section": "Section 318",
+            "title": "Cheating",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with cheating, including deception and dishonest inducement to deliver property or cause another person to act or omit to act.",
+        },
+        {
+            "section": "Section 316",
+            "title": "Criminal breach of trust",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with dishonest misappropriation or conversion of property entrusted to a person.",
+        },
+        {
+            "section": "Section 314",
+            "title": "Dishonest misappropriation of property",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with dishonest misappropriation or conversion of movable property.",
+        },
     ],
+
     "cyber_fraud_impersonation": [
-        "cheating",
-        "deception",
-        "personation",
-        "identity theft",
-        "electronic record",
-        "forgery",
-        "unauthorised access",
-        "unauthorized access",
-        "fraud",
-        "impersonation",
-        "hacking",
-        "data breach",
-        "phishing",
+        {
+            "section": "Section 318",
+            "title": "Cheating",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with deception and dishonest inducement.",
+        },
+        {
+            "section": "Section 319",
+            "title": "Cheating by personation",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with cheating by pretending to be another person or knowingly substituting one person for another.",
+        },
+        {
+            "section": "Section 336",
+            "title": "Forgery",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with making a false document or false electronic record with the intent specified in the section.",
+        },
     ],
+
     "financial_fraud": [
-        "cheating",
-        "deception",
-        "fraud",
-        "dishonestly",
-        "property",
-        "personation",
+        {
+            "section": "Section 318",
+            "title": "Cheating",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with cheating and dishonest inducement.",
+        },
+        {
+            "section": "Section 316",
+            "title": "Criminal breach of trust",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with dishonest use or disposal of entrusted property.",
+        },
     ],
+
     "cyber_harassment": [
-        "stalking",
-        "harassment",
-        "criminal intimidation",
-        "threat",
-        "defamation",
-        "privacy",
-        "electronic",
+        {
+            "section": "Section 351",
+            "title": "Criminal intimidation",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with threats intended to cause alarm or compel a person to do or omit an act.",
+        },
+        {
+            "section": "Section 356",
+            "title": "Defamation",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with making or publishing imputations that harm a person's reputation, subject to the statutory provisions and exceptions.",
+        },
     ],
-    "assault": ["hurt", "assault", "voluntarily causing", "criminal force"],
-    "theft": ["theft", "dishonestly", "movable property", "robbery"],
-    "general": ["offence", "criminal intimidation", "hurt"],
+
+    "assault": [
+        {
+            "section": "Section 115",
+            "title": "Voluntarily causing hurt",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with voluntarily causing hurt.",
+        },
+        {
+            "section": "Section 131",
+            "title": "Punishment for assault or criminal force otherwise than on grave provocation",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with assault or criminal force in the circumstances specified in the section.",
+        },
+    ],
+
+    "theft": [
+        {
+            "section": "Section 303",
+            "title": "Theft",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with dishonest taking of movable property out of another person's possession without consent.",
+        },
+        {
+            "section": "Section 304",
+            "title": "Snatching",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with theft involving sudden or forcible seizure, taking or grabbing of movable property from a person or their possession.",
+        },
+    ],
+
+    "general": [
+        {
+            "section": "Section 351",
+            "title": "Criminal intimidation",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with criminal intimidation.",
+        },
+        {
+            "section": "Section 318",
+            "title": "Cheating",
+            "statute": "Bharatiya Nyaya Sanhita, 2023",
+            "description": "Deals with cheating.",
+        },
+    ],
 }
 
-STATUTE_RELATIONSHIPS = ["PART_OF_STATUTE", "PART_OF_ACT", "PART_OF"]
 
-
-def _property(properties: Mapping[str, object], *keys: str) -> str:
-    for key in keys:
-        value = properties.get(key)
-        if value is not None and str(value).strip():
-            return str(value).strip()
-    return ""
-
-
-def normalize_statute_records(records: list[Mapping[str, object]]) -> list[dict[str, object]]:
-    """Convert graph rows into a stable API-friendly statute shape."""
-    statutes = []
-    seen = set()
-    for record in records:
-        section_properties = record.get("section_properties") or {}
-        statute_properties = record.get("statute_properties") or {}
-        if not isinstance(section_properties, Mapping) or not isinstance(
-            statute_properties, Mapping
-        ):
-            continue
-
-        section = _property(
-            section_properties,
-            "section",
-            "section_number",
-            "section_no",
-            "number",
-            "name",
-        )
-        section = re.sub(r"^sections?\s+", "", section, flags=re.IGNORECASE)
-        title = _property(section_properties, "title", "name", "heading")
-        description = _property(
-            section_properties, "description", "summary", "text", "provision"
-        )
-        statute_name = _property(
-            statute_properties, "name", "title", "act_name", "statute"
-        ) or "Bharatiya Nyaya Sanhita"
-        if not title:
-            title = description or (f"Section {section}" if section else "")
-
-        identity = (section.casefold(), title.casefold(), statute_name.casefold())
-        if identity in seen:
-            continue
-        seen.add(identity)
-        statutes.append(
-            {
-                "section": section,
-                "title": title,
-                "statute": statute_name,
-                "description": description,
-                "matched_keywords": list(record.get("matched_keywords") or []),
-            }
-        )
-    return statutes
-
-
-def retrieve_bns_statutes(graph: GraphQuery, category: str) -> list[dict[str, object]]:
-    """Search linked section properties for category-specific legal concepts."""
-    keywords = STATUTE_SEARCH_TERMS.get(category, STATUTE_SEARCH_TERMS["general"])
-    records = graph.query(
-        BNS_STATUTE_QUERY,
-        params={
-            "keywords": keywords,
-            "statute_relationships": STATUTE_RELATIONSHIPS,
-        },
-    )
-    return normalize_statute_records(records)
+def retrieve_bns_statutes(graph, category: str) -> list[dict]:
+    """Return predefined BNS sections for a category."""
+    return STATUTE_DATA.get(category, STATUTE_DATA["general"])
