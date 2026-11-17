@@ -4,23 +4,33 @@ import {
   ArrowRight,
   BookOpen,
   Check,
+  Clipboard,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
   Database,
+  Download,
   FileText,
   GitBranch,
   Menu,
   Network,
   Plus,
   Send,
+  Scale,
   Settings,
   ShieldCheck,
   Sparkles,
   Terminal,
   Zap,
+  X,
 } from "lucide-react";
+import {
+  classifyCrimeCategory,
+  extractBnsSections,
+  getEvidenceCategoryLabel,
+  getEvidenceRequirements,
+} from "./evidenceMatcher.js";
 import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000/api/analyze-situation";
@@ -355,6 +365,170 @@ function Evidence({ cypher, matched }) {
   );
 }
 
+function EvidenceMatcherPanel({
+  messages,
+  draft,
+  onGenerateDraft,
+  draftGenerating,
+  draftError,
+}) {
+  const narrative = [
+    ...messages
+      .filter((message) => message.role === "user")
+      .map((message) => message.text),
+    draft,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const latestServerMessageIndex = messages.reduce(
+    (latest, message, index) =>
+      message.role === "agent" && message.caseAnalysis ? index : latest,
+    -1,
+  );
+  const latestUserMessageIndex = messages.reduce(
+    (latest, message, index) =>
+      message.role === "user" ? index : latest,
+    -1,
+  );
+  const latestServerAnalysis =
+    latestServerMessageIndex > latestUserMessageIndex
+      ? messages[latestServerMessageIndex].caseAnalysis
+      : null;
+  const serverAnalysis = draft.trim() ? null : latestServerAnalysis;
+  const category =
+    serverAnalysis?.category || classifyCrimeCategory(narrative);
+  const requirements = serverAnalysis?.evidence_checklist
+    ? serverAnalysis.evidence_checklist.map(({ item, status }) => ({
+        label: item,
+        available: status === "AVAILABLE",
+      }))
+    : getEvidenceRequirements(category, narrative);
+  const availableCount = requirements.filter((item) => item.available).length;
+  const firReady =
+    serverAnalysis?.fir_ready ??
+    (requirements.length > 0 && availableCount === requirements.length);
+  const matchedStatutes = messages.reduce(
+    (latest, message) =>
+      message.role === "agent" && Array.isArray(message.matchedStatutes)
+        ? message.matchedStatutes
+        : latest,
+    [],
+  );
+  const sections = matchedStatutes.length
+    ? matchedStatutes
+    : extractBnsSections(
+        messages
+          .filter((message) => message.role === "agent")
+          .map((message) => message.text),
+      ).map((section) => ({ section, title: "" }));
+
+  return (
+    <aside className="evidence-matcher" aria-live="polite">
+      <div className="matcher-heading">
+        <span className="workspace-kicker">CASE EVIDENCE / BNS</span>
+        <h2>Evidence to Statute Matcher</h2>
+        <p>Requirements update as you describe the case.</p>
+      </div>
+
+      <section className="matcher-section">
+        <span className="matcher-label">DETECTED CASE CATEGORY</span>
+        <strong className="matcher-category">
+          {serverAnalysis?.category_label ||
+            getEvidenceCategoryLabel(category) ||
+            "Awaiting incident details"}
+        </strong>
+      </section>
+
+      <section className="matcher-section">
+        <div className="matcher-section-heading">
+          <span className="matcher-label">MATCHED BNS STATUTES</span>
+          <Scale size={16} />
+        </div>
+        {sections.length ? (
+          <div className="statute-tags">
+            {sections.map((statute) => {
+              const section =
+                typeof statute === "string" ? statute : statute.section;
+              const title =
+                typeof statute === "string" ? "" : statute.title;
+              return (
+                <span
+                  className="statute-tag"
+                  key={`${section}-${title}`}
+                  title={statute.description || title || undefined}
+                >
+                  {section ? `BNS § ${section}` : `BNS · ${title}`}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="matcher-empty">
+            Statutes appear here when cited in the agent response.
+          </p>
+        )}
+      </section>
+
+      <section className="matcher-section">
+        <div className="matcher-section-heading">
+          <span className="matcher-label">EVIDENCE CHECKLIST</span>
+          <span className="matcher-count">
+            {narrative.trim()
+              ? `${availableCount}/${requirements.length} mentioned`
+              : "—"}
+          </span>
+        </div>
+        {narrative.trim() ? (
+          <ul className="matcher-list">
+            {requirements.map(({ label, available }) => (
+              <li
+                className={available ? "evidence-available" : ""}
+                key={label}
+              >
+                <span className="matcher-status" aria-hidden="true">
+                  {available ? <Check size={13} /> : null}
+                </span>
+                <span>{label}</span>
+                <b>{available ? "AVAILABLE" : "MISSING"}</b>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="matcher-empty">
+            Describe the incident to generate relevant evidence requirements.
+          </p>
+        )}
+        <p className="matcher-note">
+          “Available” means mentioned in the conversation; it does not verify
+          or validate supporting records.
+        </p>
+      </section>
+      {firReady && (
+        <div className="matcher-draft-action">
+          <button
+            className="matcher-generate"
+            type="button"
+            onClick={onGenerateDraft}
+            disabled={draftGenerating}
+          >
+            {draftGenerating ? (
+              <span className="loading-dot" />
+            ) : (
+              <FileText size={16} />
+            )}
+            {draftGenerating ? "Preparing FIR Draft..." : "Generate Official FIR Draft"}
+          </button>
+          {draftError && (
+            <p className="matcher-draft-error" role="alert">
+              {draftError}
+            </p>
+          )}
+        </div>
+      )}
+    </aside>
+  );
+}
+
 function Workspace({ onBack }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sessions, setSessions] = useState([
@@ -365,6 +539,10 @@ function Workspace({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [thinking, setThinking] = useState(0);
   const [error, setError] = useState("");
+  const [draftGenerating, setDraftGenerating] = useState(false);
+  const [draftGenerationError, setDraftGenerationError] = useState("");
+  const [draftActionFeedback, setDraftActionFeedback] = useState("");
+  const [firDraft, setFirDraft] = useState("");
   const textareaRef = useRef(null);
   const activeSession =
     sessions.find((session) => session.id === activeSessionId) || sessions[0];
@@ -423,13 +601,106 @@ function Workspace({ onBack }) {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
     }
   }, [situation]);
+  useEffect(() => {
+    if (!firDraft) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setFirDraft("");
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [firDraft]);
+  const appendFirNextSteps = () => {
+    setMessages((current) =>
+      current.some((message) => message.firNextSteps)
+        ? current
+        : [
+            ...current,
+            {
+              role: "agent",
+              text: "Your FIR draft is ready! Would you like me to list the essential documents and ID proofs you should carry when visiting the police station?",
+              firNextSteps: true,
+            },
+          ],
+    );
+  };
+  const generateFirDraft = async () => {
+    const pendingNarrative = situation.trim();
+    const userMessages = messages.filter((message) => message.role === "user");
+    const currentSituation =
+      pendingNarrative || userMessages[userMessages.length - 1]?.text || "";
+    if (!currentSituation || draftGenerating) return;
+
+    setDraftGenerating(true);
+    setDraftGenerationError("");
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/generate-fir-draft",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            situation: currentSituation,
+            chat_history: messages.map(({ role, text }) => ({
+              role,
+              content: text,
+            })),
+          }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        const detail = data.detail;
+        throw new Error(
+          typeof detail === "string"
+            ? detail
+            : detail?.message || "Could not generate the FIR draft.",
+        );
+      }
+      setFirDraft(data.draft);
+      setDraftActionFeedback("");
+      appendFirNextSteps();
+    } catch (generationError) {
+      setDraftGenerationError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Could not generate the FIR draft.",
+      );
+    } finally {
+      setDraftGenerating(false);
+    }
+  };
+  const copyFirDraft = async () => {
+    try {
+      await navigator.clipboard.writeText(firDraft);
+      setDraftActionFeedback("Draft copied to clipboard.");
+    } catch {
+      setDraftActionFeedback("Clipboard access failed. Select and copy the draft text.");
+    }
+  };
+  const downloadFirDraft = () => {
+    try {
+      const blob = new Blob([firDraft], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "crimesight-fir-draft.txt";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDraftActionFeedback("FIR draft downloaded as a text file.");
+      appendFirNextSteps();
+    } catch {
+      setDraftActionFeedback("Could not download the FIR draft.");
+    }
+  };
   const submit = async (value = situation) => {
     const query = value.trim();
     if (!query || loading) return;
-    const historyForRequest = messages.map(({ role, text }) => ({
-      role,
-      content: text,
-    }));
+    const historyForRequest = [
+      ...messages.map(({ role, text }) => ({ role, content: text })),
+      { role: "user", content: query },
+    ];
     setSituation("");
     setError("");
     setLoading(true);
@@ -449,12 +720,21 @@ function Workspace({ onBack }) {
         ...current,
         {
           role: "agent",
-          text: data.agent_response || demoResponse,
+          text: data.reply || data.agent_response || demoResponse,
+          caseAnalysis: data.detected_category && data.evidence_checklist
+            ? {
+                category: data.case_analysis?.category,
+                category_label: data.detected_category,
+                evidence_checklist: data.evidence_checklist,
+                fir_ready: data.fir_ready ?? data.case_analysis?.fir_ready,
+              }
+            : data.case_analysis,
           cypher:
             data.extracted_cypher ||
             data.cypher_query ||
             "MATCH (e:Entity)-[r]-(s:Entity) RETURN e, s",
           matched: data.matched_nodes,
+          matchedStatutes: data.matched_statutes || [],
         },
       ]);
     } catch {
@@ -684,6 +964,71 @@ function Workspace({ onBack }) {
           </p>
         </form>
       </section>
+      <EvidenceMatcherPanel
+        messages={messages}
+        draft={situation}
+        onGenerateDraft={generateFirDraft}
+        draftGenerating={draftGenerating}
+        draftError={draftGenerationError}
+      />
+      {firDraft && (
+        <div
+          className="fir-draft-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setFirDraft("");
+          }}
+        >
+          <section
+            className="fir-draft-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fir-draft-title"
+          >
+            <header className="fir-draft-header">
+              <div>
+                <span className="workspace-kicker">CASE DOCUMENT</span>
+                <h2 id="fir-draft-title">FIR / Petition Draft</h2>
+              </div>
+              <div className="fir-draft-actions">
+                <button
+                  className="fir-draft-action"
+                  type="button"
+                  onClick={downloadFirDraft}
+                >
+                  <Download size={15} />
+                  Download .txt
+                </button>
+                <button
+                  className="fir-draft-action"
+                  type="button"
+                  onClick={copyFirDraft}
+                >
+                  <Clipboard size={15} />
+                  Copy to Clipboard
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
+                  aria-label="Close FIR draft"
+                  onClick={() => setFirDraft("")}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+            </header>
+            <pre className="fir-draft-content">{firDraft}</pre>
+            {draftActionFeedback && (
+              <p className="fir-draft-feedback" role="status" aria-live="polite">
+                {draftActionFeedback}
+              </p>
+            )}
+            <p className="fir-draft-disclaimer">
+              Review and verify the details and legal references before
+              submission. This is a draft, not a filed FIR or legal advice.
+            </p>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
